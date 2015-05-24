@@ -1,0 +1,21 @@
+{
+    "name": "yiidoc/yii2-upload-behavior",
+    "description": "Yii2 Upload File Behavior",
+    "type": "yii2-extension",
+    "keywords": ["yii2","extension"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "zinzinday",
+            "email": "yiidevelop@hotmail.com"
+        }
+    ],
+    "require": {
+        "yiisoft/yii2": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "yii\\behaviors\\": ""
+        }
+    }
+}
