@@ -8,8 +8,21 @@ use yii\helpers\Inflector;
 use yii\web\UploadedFile;
 use Yii;
 
+/**
+ * Class UploadFileBehavior
+ * @package yii\behaviors
+ *
+ * @property UploadedFile|null $uploadFile
+ */
 class UploadFileBehavior extends Behavior
 {
+    /**
+     * @var ActiveRecord
+     */
+    public $owner;
+    /**
+     * @var string
+     */
     public $attribute = '';
 
     /**
@@ -21,9 +34,6 @@ class UploadFileBehavior extends Behavior
      * @var string The unique file name;
      */
     private $_fileName;
-    /**
-     * @var null|UploadedFile Get instance class UploadFile
-     */
     private $_uploadFile;
 
     public function events()
@@ -38,6 +48,7 @@ class UploadFileBehavior extends Behavior
 
     public function init()
     {
+        parent::init();
         if ($this->uploadDir instanceof \Closure) {
             $this->uploadDir = call_user_func($this->uploadDir);
         } else {
@@ -48,7 +59,9 @@ class UploadFileBehavior extends Behavior
     public function beforeValidate()
     {
         $this->setUploadFile();
-        $this->owner->setAttribute($this->attribute, $this->getUploadFile());
+        if ($this->uploadFile && $this->uploadFile instanceof UploadedFile) {
+            $this->owner->setAttribute($this->attribute, $this->uploadFile);
+        }
     }
 
     public function beforeInsert()
@@ -68,31 +81,37 @@ class UploadFileBehavior extends Behavior
         $this->deleteFile();
     }
 
+    /**
+     * @return bool
+     * @throws \yii\base\Exception
+     */
     protected function saveFile()
     {
-        if ($this->getUploadFile() instanceof UploadedFile) {
+        if ($this->uploadFile && $this->uploadFile instanceof UploadedFile) {
             if (!file_exists($this->uploadDir)) {
-                FileHelper::createDirectory($this->uploadDir);
+                FileHelper::createDirectory($this->uploadDir, '0777');
             }
-            if ($this->getUploadFile()->saveAs($this->getFilePath($this->getFileName()))) {
+            if ($this->uploadFile->saveAs($this->getFilePath($this->getFileName()))) {
                 $this->owner->setAttribute($this->attribute, $this->getFileName());
                 return true;
             }
+        } else {
+            $this->owner->setAttribute($this->attribute, $this->owner->getOldAttribute($this->attribute));
         }
         return false;
     }
 
     protected function deleteFile()
     {
-        if (!$this->owner->getOldAttribute($this->attribute) && file_exists($this->getFilePath($this->owner->getOldAttribute($this->attribute)))) {
-            @unlink($this->getFilePath($this->owner->getOldAttribute($this->attribute)));
+        if ($this->owner->getOldAttribute($this->attribute) && file_exists($this->getFilePath($this->owner->getOldAttribute($this->attribute)))) {
+            unlink($this->getFilePath($this->owner->getOldAttribute($this->attribute)));
         }
     }
 
     public function getFileName()
     {
         if (!$this->_fileName) {
-            $this->_fileName = Inflector::slug($this->getUploadFile()->baseName) . strtolower(Yii::$app->security->generateRandomString(13)) . '-' . '.' . $this->getUploadFile()->extension;
+            $this->_fileName = Inflector::slug($this->uploadFile->baseName) . '-' . strtolower(Yii::$app->security->generateRandomString(13)) . '.' . $this->uploadFile->extension;
         }
         return $this->_fileName;
     }
@@ -107,7 +126,7 @@ class UploadFileBehavior extends Behavior
     }
 
     /**
-     * Get Instance UploadFile
+     * Get Instance UploadFile if
      */
     public function setUploadFile()
     {
@@ -117,7 +136,7 @@ class UploadFileBehavior extends Behavior
     }
 
     /**
-     * @return null|UploadedFile
+     * @return UploadedFile|null
      */
     public function getUploadFile()
     {
